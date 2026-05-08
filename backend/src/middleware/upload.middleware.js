@@ -46,7 +46,7 @@ const uploadUserImage = multer({
  * Wraps a multer middleware in a promise so async/await works cleanly.
  * @param {Function} multerFn
  */
-const wrapMulter = (multerFn) => (req, res) =>
+const wrapMulter = (multerFn) => (req, res, next) =>
   new Promise((resolve, reject) => {
     multerFn(req, res, (err) => {
       if (err instanceof multer.MulterError) {

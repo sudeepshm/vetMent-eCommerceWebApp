@@ -1,3 +1,7 @@
+/**
+ * Order model — updated to include paymentIntentId field for Stripe tracking.
+ */
+
 const mongoose = require("mongoose")
 
 const orderItemSchema = new mongoose.Schema(
@@ -56,6 +60,11 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "paid", "failed"],
       default: "pending",
     },
+    // Stripe PaymentIntent ID — used for payment verification & refunds
+    paymentIntentId: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -71,5 +80,6 @@ const orderSchema = new mongoose.Schema(
 )
 
 orderSchema.index({ user: 1, createdAt: -1 })
+orderSchema.index({ paymentIntentId: 1 }, { sparse: true })
 
 module.exports = mongoose.model("Order", orderSchema)

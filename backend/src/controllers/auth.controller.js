@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken")
 const User = require("../models/User")
+const { sendWelcomeEmail } = require("../services/email.service")
 
 const signToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, {
@@ -29,6 +30,12 @@ exports.register = async (req, res) => {
   }
 
   const user = await User.create({ name, email, password })
+
+  // Send welcome email (non-blocking — don't fail registration if email fails)
+  sendWelcomeEmail(user).catch((err) =>
+    console.error("[Auth] Welcome email failed:", err.message)
+  )
+
   sendTokenResponse(user, 201, res)
 }
 

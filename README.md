@@ -252,6 +252,8 @@ The try-on pipeline runs in three steps:
 **Current engine:** PIL / OpenCV compositing — runs on CPU, no GPU required.  
 **To upgrade to a diffusion model:** swap `ai-service/app/services/model_runner.py` with an OOTDiffusion or IDM-VTON inference script when a GPU instance is available.
 
+For a detailed breakdown of the system architecture and implementation strategy, see the [Architecture and Implementation Documentation](docs/architecture.md).
+
 ---
 
 ## ⚡ Optional Integrations

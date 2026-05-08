@@ -94,8 +94,15 @@ export interface CreateOrderPayload {
   total: number
 }
 
-export async function createOrder(payload: CreateOrderPayload): Promise<Order> {
-  const { data } = await api.post<{ order: Order }>("/orders", payload)
+export async function createOrder(
+  payload: CreateOrderPayload
+): Promise<{ order: Order; clientSecret: string }> {
+  const { data } = await api.post<{ order: Order; clientSecret: string }>("/orders", payload)
+  return { order: data.order, clientSecret: data.clientSecret }
+}
+
+export async function confirmOrderPayment(orderId: string): Promise<Order> {
+  const { data } = await api.post<{ order: Order }>(`/orders/${orderId}/confirm-payment`)
   return data.order
 }
 
@@ -178,4 +185,20 @@ export async function adminDeleteProduct(id: string): Promise<void> {
   await api.delete(`/products/${id}`)
 }
 
+// ─────────────────────────────────────────────
+// Style Advisor (Gemini)
+// ─────────────────────────────────────────────
+
+export interface AdvisorPayload {
+  message: string
+  imageBase64?: string
+  imageMime?: string
+}
+
+export async function postAdvisorMessage(payload: AdvisorPayload): Promise<string> {
+  const { data } = await api.post<{ reply: string }>("/ai/advisor", payload)
+  return data.reply
+}
+
 export default api
+

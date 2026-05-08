@@ -1,8 +1,8 @@
 const multer = require("multer")
-const axios = require("axios")
 const cloudinary = require("../config/cloudinary")
 const TryOn = require("../models/TryOn")
 const Product = require("../models/Product")
+const { generateTryOn } = require("../services/ai.service")
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } })
 
@@ -46,25 +46,16 @@ exports.submitTryOn = [
       "fashion/tryon/user-uploads"
     )
 
-    // 2. Call AI service
-    const aiPayload = new FormData()
-    aiPayload.append("user_image_url", userImageUrl)
-    aiPayload.append("garment_image_url", garmentImageUrl || product.image)
-
+    // 2. Call AI service via ai.service.js (uses URLSearchParams — Node.js compatible)
+    const garmentUrl = garmentImageUrl || product.imageBgRemoved || product.image
     let resultImageUrl
     try {
-      const aiResponse = await axios.post(
-        `${process.env.AI_SERVICE_URL}/tryon`,
-        aiPayload,
-        {
-          timeout: 60000, // 60 second timeout
-        }
-      )
-      resultImageUrl = aiResponse.data.result_url
+      const aiResult = await generateTryOn(userImageUrl, garmentUrl)
+      resultImageUrl = aiResult.result_url
     } catch (aiErr) {
       console.error("[AI Service Error]", aiErr.message)
       // Fallback: return original garment image if AI service is unavailable
-      resultImageUrl = garmentImageUrl || product.image
+      resultImageUrl = garmentUrl
     }
 
     const processingTime = Date.now() - start

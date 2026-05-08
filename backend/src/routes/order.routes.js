@@ -6,12 +6,14 @@ const {
   getOrderById,
   getAllOrders,
   updateOrderStatus,
+  confirmOrderPayment,
 } = require("../controllers/order.controller")
 const { protect, adminOnly } = require("../middleware/auth.middleware")
 
 router.use(protect) // All order routes require auth
 
 router.post("/", createOrder)
+router.post("/:id/confirm-payment", confirmOrderPayment)
 router.get("/my-orders", getMyOrders)
 router.get("/admin/all", adminOnly, getAllOrders)
 router.get("/:id", getOrderById)

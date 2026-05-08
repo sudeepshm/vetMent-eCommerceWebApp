@@ -4,7 +4,7 @@ import { useState, useCallback } from "react"
 import Image from "next/image"
 import { Upload, X, Loader2, CheckCircle, AlertCircle, Download } from "lucide-react"
 import { submitTryOn } from "@/lib/api"
-import type { TryOnRecord } from "@/types"
+import { useTryOnStore } from "@/store/tryOnStore"
 import { clsx } from "clsx"
 
 export interface UploadImageProps {
@@ -13,18 +13,71 @@ export interface UploadImageProps {
   productName?: string
 }
 
-type UploadStep = "idle" | "selected" | "processing" | "done" | "error"
+// ── Client-side image normalisation ──
+// Resizes the image to a max of 1024×1024 using the canvas API before upload.
+// Reduces payload size and speeds up server processing — O(1) from the server's perspective.
+async function normaliseImage(file: File, maxDimension = 1024): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    const objectUrl = URL.createObjectURL(file)
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      let { width, height } = img
+
+      // Only downscale, never upscale
+      if (width <= maxDimension && height <= maxDimension) {
+        resolve(file)
+        return
+      }
+
+      if (width > height) {
+        height = Math.round((height * maxDimension) / width)
+        width = maxDimension
+      } else {
+        width = Math.round((width * maxDimension) / height)
+        height = maxDimension
+      }
+
+      const canvas = document.createElement("canvas")
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext("2d")
+      if (!ctx) {
+        resolve(file)
+        return
+      }
+      ctx.drawImage(img, 0, 0, width, height)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file)
+            return
+          }
+          resolve(new File([blob], file.name, { type: "image/jpeg" }))
+        },
+        "image/jpeg",
+        0.9
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(file) // fall back to original
+    }
+
+    img.src = objectUrl
+  })
+}
 
 export default function UploadImage({
   productId = "",
   garmentImageUrl = "",
   productName = "this item",
 }: UploadImageProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
-  const [step, setStep] = useState<UploadStep>("idle")
-  const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<TryOnRecord | null>(null)
+  const { userImagePreview, userImageFile, result, status, error, setUserImage, setStatus, setResult, setError, reset } =
+    useTryOnStore()
+
   const [isDragOver, setIsDragOver] = useState(false)
 
   const MAX_SIZE = 10 * 1024 * 1024
@@ -39,10 +92,8 @@ export default function UploadImage({
       setError("Image must be under 10 MB.")
       return
     }
-    setError(null)
-    setFile(selected)
-    setPreview(URL.createObjectURL(selected))
-    setStep("selected")
+    const preview = URL.createObjectURL(selected)
+    setUserImage(selected, preview)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,38 +116,35 @@ export default function UploadImage({
 
   const handleDragLeave = () => setIsDragOver(false)
 
-  const handleReset = () => {
-    setFile(null)
-    setPreview(null)
-    setStep("idle")
-    setError(null)
-    setResult(null)
-  }
-
   const handleUpload = async () => {
-    if (!file) return
+    if (!userImageFile) return
     if (!productId || !garmentImageUrl) {
       setError("Please select a product before trying on.")
       return
     }
 
     try {
-      setStep("processing")
-      setError(null)
-      const tryOn = await submitTryOn({ userImage: file, productId, garmentImageUrl })
+      setStatus("processing")
+
+      // ── Phase 3: Client-side normalisation before upload ──
+      const normalisedFile = await normaliseImage(userImageFile)
+
+      const tryOn = await submitTryOn({
+        userImage: normalisedFile,
+        productId,
+        garmentImageUrl,
+      })
       setResult(tryOn)
-      setStep("done")
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Processing failed."
       setError(msg)
-      setStep("error")
     }
   }
 
   return (
     <div className="w-full space-y-6">
       {/* Drop Zone */}
-      {step === "idle" && (
+      {status === "idle" && (
         <div
           onDrop={handleDrop}
           onDragOver={handleDragOver}
@@ -132,14 +180,14 @@ export default function UploadImage({
       )}
 
       {/* Preview + Actions */}
-      {(step === "selected" || step === "error") && preview && (
+      {(status === "selected" || status === "error") && userImagePreview && (
         <div className="space-y-4">
           <div className="relative overflow-hidden rounded-none border border-neutral-200">
             <div className="relative aspect-[3/4] w-full">
-              <Image src={preview} alt="Your photo preview" fill className="object-cover" />
+              <Image src={userImagePreview} alt="Your photo preview" fill className="object-cover" />
             </div>
             <button
-              onClick={handleReset}
+              onClick={reset}
               className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center bg-black/70 text-white transition hover:bg-black"
               aria-label="Remove photo"
             >
@@ -157,14 +205,14 @@ export default function UploadImage({
           <button onClick={handleUpload} className="btn-primary w-full">
             Generate Try‑On for {productName}
           </button>
-          <button onClick={handleReset} className="btn-ghost w-full text-neutral-500">
+          <button onClick={reset} className="btn-ghost w-full text-neutral-500">
             Choose different photo
           </button>
         </div>
       )}
 
-      {/* Processing */}
-      {step === "processing" && (
+      {/* Processing — with animated progress bar */}
+      {status === "processing" && (
         <div className="flex flex-col items-center justify-center space-y-4 rounded-none border border-neutral-200 py-16">
           <Loader2 className="h-10 w-10 animate-spin text-black" strokeWidth={1.5} />
           <p className="text-sm font-medium text-black">AI is processing your image…</p>
@@ -176,7 +224,7 @@ export default function UploadImage({
       )}
 
       {/* Result */}
-      {step === "done" && result && (
+      {status === "done" && result && (
         <div className="space-y-4">
           <div className="flex items-center gap-2 border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             <CheckCircle className="h-4 w-4 flex-shrink-0" />
@@ -188,8 +236,8 @@ export default function UploadImage({
                 Your Photo
               </p>
               <div className="relative aspect-[3/4] overflow-hidden border border-neutral-200">
-                {preview && (
-                  <Image src={preview} alt="Original" fill className="object-cover" />
+                {userImagePreview && (
+                  <Image src={userImagePreview} alt="Original" fill className="object-cover" />
                 )}
               </div>
             </div>
@@ -218,7 +266,7 @@ export default function UploadImage({
               <Download className="h-4 w-4" />
               Download
             </a>
-            <button onClick={handleReset} className="btn-ghost flex-1">
+            <button onClick={reset} className="btn-ghost flex-1">
               Try Another
             </button>
           </div>

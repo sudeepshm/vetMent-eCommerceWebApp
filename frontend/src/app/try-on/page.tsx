@@ -1,34 +1,52 @@
 "use client"
 
-import { Suspense, useState, useEffect } from "react"
+import { Suspense, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { Sparkles, ChevronRight, Loader2 } from "lucide-react"
+import { Sparkles, ChevronRight, Loader2, Layers } from "lucide-react"
 import UploadImage from "@/components/UploadImage"
 import { getProductById, getProducts } from "@/lib/api"
+import { useTryOnStore } from "@/store/tryOnStore"
+import { useState } from "react"
 import type { Product } from "@/types"
 
 function TryOnContent() {
   const searchParams = useSearchParams()
   const productId = searchParams.get("productId")
 
-  const [product, setProduct] = useState<Product | null>(null)
+  const { selectedProduct, setProduct } = useTryOnStore()
   const [loadingProduct, setLoadingProduct] = useState(!!productId)
   const [recentProducts, setRecentProducts] = useState<Product[]>([])
 
   useEffect(() => {
     if (productId) {
-      getProductById(productId)
-        .then(setProduct)
-        .catch(() => setProduct(null))
-        .finally(() => setLoadingProduct(false))
+      // Only fetch if not already the right product in store
+      if (selectedProduct?._id !== productId) {
+        setLoadingProduct(true)
+        getProductById(productId)
+          .then((p) => {
+            setProduct(p)
+            setLoadingProduct(false)
+          })
+          .catch(() => {
+            setProduct(null)
+            setLoadingProduct(false)
+          })
+      } else {
+        setLoadingProduct(false)
+      }
     } else {
+      setProduct(null)
       getProducts({ limit: 6, sort: "newest" })
         .then((r) => setRecentProducts(r.products))
         .catch(() => {})
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId])
+
+  // Garment image: prefer background-removed version when available
+  const garmentDisplayUrl = selectedProduct?.imageBgRemoved || selectedProduct?.image || ""
 
   return (
     <div className="mx-auto max-w-[1600px] px-6 py-16 md:px-12">
@@ -63,22 +81,36 @@ function TryOnContent() {
             <div className="flex h-48 items-center justify-center">
               <Loader2 className="h-7 w-7 animate-spin text-black" strokeWidth={1.5} />
             </div>
-          ) : product ? (
+          ) : selectedProduct ? (
             <div className="space-y-6">
               <div className="flex items-center gap-1.5 text-sm text-neutral-500">
                 <Link href="/products" className="hover:text-black">Collection</Link>
                 <ChevronRight className="h-3.5 w-3.5" />
-                <span className="text-black">{product.name}</span>
+                <span className="text-black">{selectedProduct.name}</span>
               </div>
 
               <div className="flex gap-5 rounded-none border border-neutral-200 p-4">
+                {/* Garment preview — uses bg-removed image if available */}
                 <div className="relative h-32 w-24 flex-shrink-0 overflow-hidden bg-neutral-100">
-                  <Image src={product.image} alt={product.name} fill className="object-cover" />
+                  {garmentDisplayUrl && (
+                    <Image
+                      src={garmentDisplayUrl}
+                      alt={selectedProduct.name}
+                      fill
+                      className="object-contain"
+                    />
+                  )}
+                  {selectedProduct.imageBgRemoved && (
+                    <div className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5">
+                      <Layers className="h-2.5 w-2.5 text-white" />
+                      <span className="text-[9px] text-white">Isolated</span>
+                    </div>
+                  )}
                 </div>
                 <div className="flex flex-col justify-between py-1">
                   <div>
-                    <p className="font-medium text-black">{product.name}</p>
-                    <p className="mt-1 text-sm text-neutral-500">${product.price.toFixed(2)}</p>
+                    <p className="font-medium text-black">{selectedProduct.name}</p>
+                    <p className="mt-1 text-sm text-neutral-500">${selectedProduct.price.toFixed(2)}</p>
                   </div>
                   <Link
                     href="/products"
@@ -109,7 +141,7 @@ function TryOnContent() {
                       className="group relative aspect-[3/4] overflow-hidden bg-neutral-100"
                     >
                       <Image
-                        src={p.image}
+                        src={p.imageBgRemoved || p.image}
                         alt={p.name}
                         fill
                         sizes="200px"
@@ -136,9 +168,9 @@ function TryOnContent() {
             Step 2 — Upload Your Photo
           </h2>
           <UploadImage
-            productId={product?._id ?? ""}
-            garmentImageUrl={product?.image ?? ""}
-            productName={product?.name ?? "this item"}
+            productId={selectedProduct?._id ?? ""}
+            garmentImageUrl={selectedProduct?.imageBgRemoved || selectedProduct?.image || ""}
+            productName={selectedProduct?.name ?? "this item"}
           />
 
           {/* Tips */}

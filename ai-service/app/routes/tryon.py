@@ -1,15 +1,21 @@
 """
 tryon.py — FastAPI router for virtual try-on endpoint.
+
+When TRYON_BACKEND=hf_space, inference takes 30–90s.
+The gradio_client call is blocking (sync), so we run it
+in a thread executor to avoid stalling FastAPI's event loop.
 """
 
-import io
+import asyncio
 import time
 import logging
+import os
 import cloudinary
 import cloudinary.uploader
 import httpx
-from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+from dotenv import load_dotenv
+from fastapi import APIRouter, Form, HTTPException
+from concurrent.futures import ThreadPoolExecutor
 
 from app.services.model_runner import run_tryon_model
 from app.models.schemas import TryOnResponse
@@ -18,10 +24,14 @@ logger = logging.getLogger("ai-service.routes.tryon")
 
 router = APIRouter()
 
-# Cloudinary setup (optional — falls back to base64 data URI)
-import os
-from dotenv import load_dotenv
+# Thread pool for blocking inference calls (gradio_client is synchronous)
+_executor = ThreadPoolExecutor(max_workers=3)
 
+# Detect active backend for logging
+_backend = os.getenv("TRYON_BACKEND", "demo").lower()
+_is_hf_space = _backend == "hf_space"
+
+# Cloudinary setup (optional — falls back to base64 data URI)
 load_dotenv()
 _has_cloudinary = bool(os.getenv("CLOUDINARY_CLOUD_NAME"))
 if _has_cloudinary:
@@ -67,16 +77,26 @@ async def tryon_endpoint(
 ):
     """
     Virtual try-on endpoint.
-
+    
     Accepts URLs for user photo and garment image.
     Returns the URL of the AI-generated composite result.
+    
+    Latency:
+      demo     → <2s  (PIL compositing)
+      hf_space → 30–90s (IDM-VTON on HuggingFace GPU)
     """
     start_ms = int(time.time() * 1000)
-    logger.info(f"Try-on request | garment: {garment_image_url[:60]}...")
+    log_url = garment_image_url[:60] + ("..." if len(garment_image_url) > 60 else "")
+    
+    if _is_hf_space:
+        logger.info(f"Try-on request [IDM-VTON / HF Space] | garment: {log_url}")
+        logger.info("⏳ HF Space inference may take 30–90s depending on queue...")
+    else:
+        logger.info(f"Try-on request [{_backend}] | garment: {log_url}")
 
     try:
-        # Fetch both images in parallel
-        async with httpx.AsyncClient(timeout=30) as client:
+        # Fetch both images in parallel (60s timeout — Cloudinary URLs can be slow)
+        async with httpx.AsyncClient(timeout=60) as client:
             person_resp, garment_resp = await asyncio.gather(
                 client.get(user_image_url),
                 client.get(garment_image_url),
@@ -86,8 +106,18 @@ async def tryon_endpoint(
             person_bytes = person_resp.content
             garment_bytes = garment_resp.content
 
-        # Run compositing
-        result_bytes = run_tryon_model(person_bytes, garment_bytes)
+        # Run model inference in thread executor (gradio_client is blocking)
+        # HF Space can take up to 90s — we give it 180s before timing out
+        loop = asyncio.get_event_loop()
+        result_bytes = await asyncio.wait_for(
+            loop.run_in_executor(
+                _executor,
+                run_tryon_model,
+                person_bytes,
+                garment_bytes,
+            ),
+            timeout=180.0,
+        )
 
         # Upload result
         if _has_cloudinary:
@@ -106,6 +136,12 @@ async def tryon_endpoint(
     except httpx.HTTPError as e:
         logger.error(f"Image fetch error: {e}")
         raise HTTPException(status_code=422, detail=f"Failed to fetch image: {str(e)}")
+    except asyncio.TimeoutError:
+        logger.error("HuggingFace Space timed out after 180s")
+        raise HTTPException(
+            status_code=504,
+            detail="Try-on timed out. HuggingFace Space is busy — please retry in a minute.",
+        )
     except RuntimeError as e:
         logger.error(f"Model error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -113,6 +149,3 @@ async def tryon_endpoint(
         logger.error(f"Unexpected error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Try-on processing failed")
 
-
-# Fix missing asyncio import at top level
-import asyncio

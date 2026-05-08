@@ -33,6 +33,11 @@ const productSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // URL of the garment with its background removed (set asynchronously on upload)
+    imageBgRemoved: {
+      type: String,
+      default: "",
+    },
     category: {
       type: String,
       required: [true, "Category is required"],

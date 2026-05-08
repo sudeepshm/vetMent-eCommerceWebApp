@@ -3,6 +3,7 @@ import { Toaster } from "react-hot-toast"
 import "./globals.css"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
+import StyleAdvisor from "@/components/StyleAdvisor"
 
 export const metadata: Metadata = {
   title: {
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             error: { iconTheme: { primary: "#ef4444", secondary: "#ffffff" } },
           }}
         />
+        <StyleAdvisor />
       </body>
     </html>
   )
