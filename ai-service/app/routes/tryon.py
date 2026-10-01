@@ -10,25 +10,28 @@ import asyncio
 import time
 import logging
 import os
+import io
 import cloudinary
 import cloudinary.uploader
 import httpx
 from dotenv import load_dotenv
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Form, UploadFile, File, HTTPException
 from concurrent.futures import ThreadPoolExecutor
 
 from app.services.model_runner import run_tryon_model
-from app.models.schemas import TryOnResponse
+from app.services.catvton_worker import vton_worker
+from app.services.sizing_engine import extract_pose_and_measure
+from app.models.schemas import TryOnResponse, TryOnRequest
 
 logger = logging.getLogger("ai-service.routes.tryon")
 
 router = APIRouter()
 
-# Thread pool for blocking inference calls (gradio_client is synchronous)
-_executor = ThreadPoolExecutor(max_workers=3)
+# Thread pool for blocking inference calls
+_executor = ThreadPoolExecutor(max_workers=4)
 
-# Detect active backend for logging
-_backend = os.getenv("TRYON_BACKEND", "demo").lower()
+# Detect active backend
+_backend = os.getenv("TRYON_BACKEND", "catvton").lower()
 _is_hf_space = _backend == "hf_space"
 
 # Cloudinary setup (optional — falls back to base64 data URI)
@@ -74,28 +77,19 @@ def bytes_to_data_uri(image_bytes: bytes) -> str:
 async def tryon_endpoint(
     user_image_url: str = Form(...),
     garment_image_url: str = Form(...),
+    user_height_cm: float = Form(175.0),
+    num_inference_steps: int = Form(25),
 ):
     """
     Virtual try-on endpoint.
-    
-    Accepts URLs for user photo and garment image.
-    Returns the URL of the AI-generated composite result.
-    
-    Latency:
-      demo     → <2s  (PIL compositing)
-      hf_space → 30–90s (IDM-VTON on HuggingFace GPU)
+    Processes user photo and garment image, generating CatVTON output + anthropometric sizing.
     """
     start_ms = int(time.time() * 1000)
     log_url = garment_image_url[:60] + ("..." if len(garment_image_url) > 60 else "")
-    
-    if _is_hf_space:
-        logger.info(f"Try-on request [IDM-VTON / HF Space] | garment: {log_url}")
-        logger.info("⏳ HF Space inference may take 30–90s depending on queue...")
-    else:
-        logger.info(f"Try-on request [{_backend}] | garment: {log_url}")
+    logger.info(f"Try-on request [{_backend}] | garment: {log_url} | height: {user_height_cm}cm")
 
     try:
-        # Fetch both images in parallel (60s timeout — Cloudinary URLs can be slow)
+        # Fetch both images in parallel
         async with httpx.AsyncClient(timeout=60) as client:
             person_resp, garment_resp = await asyncio.gather(
                 client.get(user_image_url),
@@ -106,18 +100,31 @@ async def tryon_endpoint(
             person_bytes = person_resp.content
             garment_bytes = garment_resp.content
 
-        # Run model inference in thread executor (gradio_client is blocking)
-        # HF Space can take up to 90s — we give it 180s before timing out
         loop = asyncio.get_event_loop()
-        result_bytes = await asyncio.wait_for(
-            loop.run_in_executor(
+
+        if _backend in ["catvton", "demo", "colab"]:
+            # Run modernized CatVTON worker with automated masking and sizing engine
+            worker_result = await loop.run_in_executor(
+                _executor,
+                vton_worker.run_tryon,
+                person_bytes,
+                garment_bytes,
+                user_height_cm,
+                num_inference_steps,
+            )
+            result_bytes = worker_result["result_bytes"]
+            sizing_advisory = worker_result.get("sizing_advisory")
+            telemetry = worker_result.get("telemetry")
+        else:
+            # Fallback legacy runner
+            result_bytes = await loop.run_in_executor(
                 _executor,
                 run_tryon_model,
                 person_bytes,
                 garment_bytes,
-            ),
-            timeout=180.0,
-        )
+            )
+            sizing_advisory = extract_pose_and_measure(person_bytes, user_height_cm=user_height_cm)
+            telemetry = None
 
         # Upload result
         if _has_cloudinary:
@@ -126,26 +133,53 @@ async def tryon_endpoint(
             result_url = bytes_to_data_uri(result_bytes)
 
         processing_time = int(time.time() * 1000) - start_ms
-        logger.info(f"Try-on done in {processing_time}ms")
+        logger.info(f"Try-on completed in {processing_time}ms | size: {sizing_advisory.get('recommended_size')}")
 
         return TryOnResponse(
             result_url=result_url,
             processing_time_ms=processing_time,
+            sizing_advisory=sizing_advisory,
+            telemetry=telemetry,
         )
 
     except httpx.HTTPError as e:
         logger.error(f"Image fetch error: {e}")
         raise HTTPException(status_code=422, detail=f"Failed to fetch image: {str(e)}")
-    except asyncio.TimeoutError:
-        logger.error("HuggingFace Space timed out after 180s")
-        raise HTTPException(
-            status_code=504,
-            detail="Try-on timed out. HuggingFace Space is busy — please retry in a minute.",
-        )
-    except RuntimeError as e:
-        logger.error(f"Model error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Try-on processing failed")
+        logger.error(f"Try-on error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/v1/internal/inference")
+async def internal_inference(
+    user_image: UploadFile = File(...),
+    garment_image: UploadFile = File(...),
+    num_inference_steps: int = Form(25),
+    user_height_cm: float = Form(175.0),
+):
+    """
+    Direct internal inference route adhering to the engineering specification.
+    """
+    person_bytes = await user_image.read()
+    garment_bytes = await garment_image.read()
+
+    loop = asyncio.get_event_loop()
+    worker_result = await loop.run_in_executor(
+        _executor,
+        vton_worker.run_tryon,
+        person_bytes,
+        garment_bytes,
+        user_height_cm,
+        num_inference_steps,
+    )
+
+    import base64
+    result_b64 = base64.b64encode(worker_result["result_bytes"]).decode("utf-8")
+    return {
+        "status": "SUCCESS",
+        "result_image_base64": result_b64,
+        "sizing_advisory": worker_result.get("sizing_advisory"),
+        "telemetry": worker_result.get("telemetry"),
+    }
+
 
