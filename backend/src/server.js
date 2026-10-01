@@ -68,6 +68,7 @@ app.use("/api/auth", authRoutes)
 app.use("/api/products", productRoutes)
 app.use("/api/orders", orderRoutes)
 app.use("/api/ai", aiRoutes)
+app.use("/api", aiRoutes)
 
 // ── 404 Handler ──
 app.use((_req, res) => {

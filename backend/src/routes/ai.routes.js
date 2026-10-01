@@ -1,19 +1,32 @@
 const express = require("express")
 const router = express.Router()
-const { submitTryOn, getMyTryOns } = require("../controllers/ai.controller")
+const {
+  submitTryOn,
+  submitTryOnJob,
+  getTryOnJobStatus,
+  getMyTryOns,
+} = require("../controllers/ai.controller")
 const { chat, getHistory, clearHistory } = require("../controllers/advisor.controller")
-const { protect } = require("../middleware/auth.middleware")
+const { protect, optionalAuth } = require("../middleware/auth.middleware")
 
-// ── All AI routes require authentication ──
-router.use(protect)
+// ── Virtual Try-On Asynchronous Modern Routes ──
+// Submit job (protect or optionalAuth if user is authenticated)
+router.post("/tryon/submit", protect, submitTryOnJob)
+router.post("/v1/try-on/submit", protect, submitTryOnJob)
 
-// Style Advisor (MongoDB-persisted)
-router.post("/advisor", chat)
-router.get("/advisor/history", getHistory)
-router.delete("/advisor/history", clearHistory)
+// Status polling by unique UUID (accessible with jobId)
+router.get("/tryon/status/:jobId", getTryOnJobStatus)
+router.get("/v1/try-on/status/:jobId", getTryOnJobStatus)
 
-// Virtual Try-On
-router.post("/tryon", submitTryOn)
-router.get("/my-tryons", getMyTryOns)
+// ── Legacy Synchronous Try-On Route ──
+router.post("/tryon", protect, submitTryOn)
+
+// ── User's Saved Try-On Records ──
+router.get("/my-tryons", protect, getMyTryOns)
+
+// ── Style Advisor ──
+router.post("/advisor", protect, chat)
+router.get("/advisor/history", protect, getHistory)
+router.delete("/advisor/history", protect, clearHistory)
 
 module.exports = router

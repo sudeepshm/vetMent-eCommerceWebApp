@@ -24,6 +24,22 @@ const tryOnSchema = new mongoose.Schema(
       type: Number, // milliseconds
       default: null,
     },
+    jobId: {
+      type: String,
+      default: null,
+    },
+    userHeightCm: {
+      type: Number,
+      default: 175,
+    },
+    sizingAdvisory: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    telemetry: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: true,

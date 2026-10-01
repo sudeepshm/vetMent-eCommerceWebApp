@@ -1,27 +1,35 @@
 /**
  * ai.service.js
  *
- * Backend service layer that communicates with the Python FastAPI AI service.
- * Handles HTTP forwarding of image URLs and result fetching.
- * This keeps controller logic clean and AI logic isolated.
+ * Backend service layer communicating with the Python FastAPI AI service
+ * or Google Colab Cloudflare tunnel. Handles image URLs, anthropometric sizing,
+ * and result parsing.
  */
 
 const axios = require("axios")
 
-const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000"
-const AI_TIMEOUT_MS = 90_000 // 90 seconds for AI processing
+// Prioritize remote Colab worker if configured, otherwise local AI service
+const AI_SERVICE_URL = process.env.AI_WORKER_URL || process.env.AI_SERVICE_URL || "http://localhost:8000"
+const AI_TIMEOUT_MS = 120_000 // 120 seconds timeout for diffusion processing
 
 /**
  * Send garment + user image URLs to the AI service and get a try-on result.
  *
  * @param {string} userImageUrl   - Cloudinary URL of the user's uploaded photo
  * @param {string} garmentImageUrl - Cloudinary/CDN URL of the garment image
- * @returns {Promise<{ result_url: string, processing_time_ms: number }>}
+ * @param {object} options         - Optional options (user_height_cm, num_inference_steps, etc.)
+ * @returns {Promise<{ result_url: string, processing_time_ms: number, sizing_advisory?: object, telemetry?: object }>}
  */
-async function generateTryOn(userImageUrl, garmentImageUrl) {
+async function generateTryOn(userImageUrl, garmentImageUrl, options = {}) {
   const formData = new URLSearchParams()
   formData.append("user_image_url", userImageUrl)
   formData.append("garment_image_url", garmentImageUrl)
+  if (options.user_height_cm) {
+    formData.append("user_height_cm", String(options.user_height_cm))
+  }
+  if (options.num_inference_steps) {
+    formData.append("num_inference_steps", String(options.num_inference_steps))
+  }
 
   const response = await axios.post(`${AI_SERVICE_URL}/tryon`, formData.toString(), {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -32,7 +40,7 @@ async function generateTryOn(userImageUrl, garmentImageUrl) {
 }
 
 /**
- * Check if the AI service is available.
+ * Check if the AI service / Colab worker is available.
  * @returns {Promise<boolean>}
  */
 async function isAIServiceHealthy() {
@@ -44,4 +52,5 @@ async function isAIServiceHealthy() {
   }
 }
 
-module.exports = { generateTryOn, isAIServiceHealthy }
+module.exports = { generateTryOn, isAIServiceHealthy, AI_SERVICE_URL }
+
