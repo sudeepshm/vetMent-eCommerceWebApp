@@ -35,13 +35,6 @@ const uploadMultiple = multer({
   limits: { fileSize: MAX_FILE_SIZE },
 }).array("images", 5)
 
-/** User photo upload — field name: "userImage" (for try-on) */
-const uploadUserImage = multer({
-  storage,
-  fileFilter,
-  limits: { fileSize: MAX_FILE_SIZE },
-}).single("userImage")
-
 /**
  * Wraps a multer middleware in a promise so async/await works cleanly.
  * @param {Function} multerFn
@@ -59,4 +52,4 @@ const wrapMulter = (multerFn) => (req, res, next) =>
     })
   })
 
-module.exports = { uploadSingle, uploadMultiple, uploadUserImage, wrapMulter }
+module.exports = { uploadSingle, uploadMultiple, wrapMulter }

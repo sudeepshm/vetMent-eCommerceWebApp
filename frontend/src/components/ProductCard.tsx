@@ -3,7 +3,7 @@
 import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
-import { ShoppingBag, Sparkles, Star } from "lucide-react"
+import { ShoppingBag, Star } from "lucide-react"
 import { useCartStore } from "@/store/cartStore"
 import type { Product } from "@/types"
 import toast from "react-hot-toast"
@@ -143,16 +143,6 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
             <ShoppingBag className="h-3.5 w-3.5" />
             {product.inStock ? "Quick Add" : "Sold Out"}
           </button>
-
-          {/* Try On */}
-          <Link
-            href={`/try-on?productId=${product._id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="flex w-full items-center justify-center gap-1.5 bg-white/90 py-2 text-xs font-medium uppercase tracking-[0.15em] text-black transition hover:bg-white"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            Try On
-          </Link>
         </div>
       </div>
 

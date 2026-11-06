@@ -50,7 +50,6 @@ export default function AccountPage() {
         <aside className="space-y-1">
           {[
             { label: "Orders", href: "/account", active: true },
-            { label: "Try-On History", href: "/try-on" },
             { label: "Settings", href: "/account/settings" },
           ].map((link) => (
             <Link

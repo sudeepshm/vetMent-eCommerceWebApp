@@ -10,7 +10,6 @@ const connectDB = require("./config/db")
 const authRoutes = require("./routes/auth.routes")
 const productRoutes = require("./routes/product.routes")
 const orderRoutes = require("./routes/order.routes")
-const aiRoutes = require("./routes/ai.routes")
 const webhookRoutes = require("./routes/webhook.routes")
 
 // Connect to MongoDB
@@ -59,7 +58,6 @@ app.get("/api/health", (_req, res) => {
     timestamp: new Date().toISOString(),
     stripeConfigured: !!process.env.STRIPE_SECRET_KEY,
     emailConfigured: !!process.env.RESEND_API_KEY,
-    geminiConfigured: !!process.env.GEMINI_API_KEY,
   })
 })
 
@@ -67,8 +65,6 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/auth", authRoutes)
 app.use("/api/products", productRoutes)
 app.use("/api/orders", orderRoutes)
-app.use("/api/ai", aiRoutes)
-app.use("/api", aiRoutes)
 
 // ── 404 Handler ──
 app.use((_req, res) => {
@@ -93,7 +89,6 @@ app.listen(PORT, () => {
   console.log(`📦 Environment: ${process.env.NODE_ENV || "development"}`)
   console.log(`💳 Stripe: ${process.env.STRIPE_SECRET_KEY ? "✅ configured" : "⚠️  mock mode"}`)
   console.log(`📧 Email:  ${process.env.RESEND_API_KEY ? "✅ configured" : "⚠️  mock mode"}`)
-  console.log(`🤖 Gemini: ${process.env.GEMINI_API_KEY ? "✅ configured" : "⚠️  not set"}`)
 })
 
 module.exports = app

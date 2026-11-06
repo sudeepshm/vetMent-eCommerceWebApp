@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { Minus, Plus, ShoppingBag, Sparkles, Heart, ArrowLeft, Loader2 } from "lucide-react"
+import { Minus, Plus, ShoppingBag, Heart, ArrowLeft, Loader2 } from "lucide-react"
 import { getProductById } from "@/lib/api"
 import { useCartStore } from "@/store/cartStore"
 import SizeSelector from "@/components/SizeSelector"
@@ -225,14 +225,6 @@ export default function ProductDetailPage({ params }: ProductPageProps) {
               <ShoppingBag className="h-4 w-4" />
               {product.inStock ? "Add to Cart" : "Sold Out"}
             </button>
-
-            <Link
-              href={`/try-on?productId=${product._id}`}
-              className="btn-secondary flex-1 text-center"
-            >
-              <Sparkles className="h-4 w-4" />
-              AI Try‑On
-            </Link>
 
             <button
               onClick={() => setWishlisted((p) => !p)}

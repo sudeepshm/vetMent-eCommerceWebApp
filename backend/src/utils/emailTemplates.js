@@ -16,7 +16,7 @@ function brandHeader() {
             VÊTEMENT
           </p>
           <p style="margin:6px 0 0;font-family:Arial,sans-serif;font-size:10px;letter-spacing:0.3em;color:#888;text-transform:uppercase;">
-            AI-Powered Fashion
+            Luxury Fashion
           </p>
         </td>
       </tr>
@@ -30,7 +30,7 @@ function brandFooter() {
       <tr>
         <td align="center" style="padding:28px 24px;">
           <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:11px;color:#999;letter-spacing:0.08em;text-transform:uppercase;">
-            VÊTEMENT · AI-Powered Fashion
+            VÊTEMENT · Luxury Fashion
           </p>
           <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#bbb;">
             You received this email because you have an account with VÊTEMENT.
@@ -158,8 +158,8 @@ function welcomeEmailHTML(user) {
       Welcome to VÊTEMENT
     </p>
     <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:13px;color:#666;">
-      Hi ${user.name}, your account has been created. You now have access to our full catalog, 
-      AI style advisor, and virtual try-on experience.
+      Hi ${user.name}, your account has been created. You now have access to our full catalog,
+      exclusive seasonal collections, and personal order tracking.
     </p>
 
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9f9f9;border-left:3px solid #000;margin-bottom:28px;">
@@ -168,9 +168,9 @@ function welcomeEmailHTML(user) {
           <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:11px;letter-spacing:0.15em;color:#999;text-transform:uppercase;">What's waiting for you</p>
           <ul style="margin:8px 0 0;padding-left:18px;font-family:Arial,sans-serif;font-size:13px;color:#444;line-height:1.8;">
             <li>Curated luxury fashion catalog</li>
-            <li>AI-powered style advisor (Gemini)</li>
-            <li>Virtual try-on powered by computer vision</li>
-            <li>Saved order history &amp; tracking</li>
+            <li>New seasonal arrivals and runway edits</li>
+            <li>Seamless checkout &amp; secure payments</li>
+            <li>Saved order history &amp; real-time tracking</li>
           </ul>
         </td>
       </tr>

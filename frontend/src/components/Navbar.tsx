@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Menu, ShoppingBag, User, X, Sparkles, LogOut, Settings, Package } from "lucide-react"
+import { Menu, ShoppingBag, User, X, LogOut, Settings, Package } from "lucide-react"
 import { useCartStore } from "@/store/cartStore"
 import { useAuthStore } from "@/store/authStore"
 import { logout } from "@/lib/auth"
@@ -13,8 +13,8 @@ import { clsx } from "clsx"
 const navLinks = [
   { label: "Men", href: "/products?category=men" },
   { label: "Women", href: "/products?category=women" },
+  { label: "Accessories", href: "/products?category=accessories" },
   { label: "New", href: "/products?category=new" },
-  { label: "AI Try‑On", href: "/try-on", highlight: true },
 ]
 
 export default function Navbar() {
@@ -77,15 +77,11 @@ export default function Navbar() {
               href={link.href}
               className={clsx(
                 "group relative text-sm uppercase tracking-[0.2em] transition-colors duration-300",
-                link.highlight
-                  ? "flex items-center gap-1.5 text-neutral-800 hover:text-black"
-                  : "text-neutral-600 hover:text-black",
-                pathname.startsWith(link.href.split("?")[0]) && "text-black"
+                pathname.startsWith(link.href.split("?")[0])
+                  ? "text-black font-medium"
+                  : "text-neutral-600 hover:text-black"
               )}
             >
-              {link.highlight && (
-                <Sparkles className="h-3.5 w-3.5 text-gold-500" strokeWidth={1.5} />
-              )}
               <span>{link.label}</span>
               <span
                 className={clsx(
@@ -214,14 +210,8 @@ export default function Navbar() {
             <Link
               key={link.label}
               href={link.href}
-              className={clsx(
-                "flex items-center gap-2 border-b border-neutral-100 py-4 text-sm uppercase tracking-[0.2em] transition-all duration-300 hover:pl-2 hover:text-black",
-                link.highlight ? "text-neutral-800" : "text-neutral-600"
-              )}
+              className="flex items-center gap-2 border-b border-neutral-100 py-4 text-sm uppercase tracking-[0.2em] text-neutral-600 transition-all duration-300 hover:pl-2 hover:text-black"
             >
-              {link.highlight && (
-                <Sparkles className="h-3.5 w-3.5 text-gold-500" strokeWidth={1.5} />
-              )}
               {link.label}
             </Link>
           ))}

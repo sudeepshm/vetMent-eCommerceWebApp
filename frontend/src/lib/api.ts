@@ -5,7 +5,6 @@ import type {
   ProductsResponse,
   Order,
   ShippingAddress,
-  TryOnRecord,
 } from "@/types"
 
 const api = axios.create({
@@ -117,69 +116,6 @@ export async function getOrderById(id: string): Promise<Order> {
 }
 
 // ─────────────────────────────────────────────
-// AI Try-On
-// ─────────────────────────────────────────────
-
-export interface TryOnPayload {
-  userImage: File
-  productId: string
-  garmentImageUrl: string
-  user_height_cm?: number
-}
-
-/**
- * Submit asynchronous try-on job (returns 202 Accepted with job_id)
- */
-export async function submitTryOnJob(payload: TryOnPayload): Promise<{
-  status: string
-  job_id: string
-  estimated_wait_seconds: number
-  status_endpoint: string
-}> {
-  const formData = new FormData()
-  formData.append("userImage", payload.userImage)
-  formData.append("productId", payload.productId)
-  formData.append("garmentImageUrl", payload.garmentImageUrl)
-  if (payload.user_height_cm) {
-    formData.append("user_height_cm", String(payload.user_height_cm))
-  }
-
-  const { data } = await api.post("/ai/tryon/submit", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })
-  return data
-}
-
-/**
- * Poll try-on job status by job_id
- */
-export async function getTryOnJobStatus(jobId: string): Promise<import("@/types").TryOnJobStatus> {
-  const { data } = await api.get<import("@/types").TryOnJobStatus>(`/ai/tryon/status/${jobId}`)
-  return data
-}
-
-export async function submitTryOn(payload: TryOnPayload): Promise<TryOnRecord> {
-  const formData = new FormData()
-  formData.append("userImage", payload.userImage)
-  formData.append("productId", payload.productId)
-  formData.append("garmentImageUrl", payload.garmentImageUrl)
-  if (payload.user_height_cm) {
-    formData.append("user_height_cm", String(payload.user_height_cm))
-  }
-
-  const { data } = await api.post<{ tryOn: TryOnRecord }>("/ai/tryon", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  })
-  return data.tryOn
-}
-
-export async function getMyTryOns(): Promise<TryOnRecord[]> {
-  const { data } = await api.get<{ tryOns: TryOnRecord[] }>("/ai/my-tryons")
-  return data.tryOns
-}
-
-
-// ─────────────────────────────────────────────
 // Admin
 // ─────────────────────────────────────────────
 
@@ -219,21 +155,6 @@ export async function adminUpdateProduct(
 
 export async function adminDeleteProduct(id: string): Promise<void> {
   await api.delete(`/products/${id}`)
-}
-
-// ─────────────────────────────────────────────
-// Style Advisor (Gemini)
-// ─────────────────────────────────────────────
-
-export interface AdvisorPayload {
-  message: string
-  imageBase64?: string
-  imageMime?: string
-}
-
-export async function postAdvisorMessage(payload: AdvisorPayload): Promise<string> {
-  const { data } = await api.post<{ reply: string }>("/ai/advisor", payload)
-  return data.reply
 }
 
 export default api

@@ -14,33 +14,6 @@ const uploadBufferToCloudinary = (buffer, folder = "fashion/products") =>
     stream.end(buffer)
   })
 
-/**
- * Fire-and-forget: apply Cloudinary background removal to an uploaded image
- * and save the resulting URL to the product document.
- * Requires the "AI Background Removal" add-on to be active on the Cloudinary account.
- * Silently skips if the transformation fails or the add-on is not available.
- *
- * @param {string} productId    - MongoDB product _id
- * @param {string} publicId     - Cloudinary public_id of the uploaded image
- */
-async function applyBackgroundRemovalAsync(productId, publicId) {
-  try {
-    const result = await cloudinary.uploader.explicit(publicId, {
-      type: "upload",
-      eager: [{ effect: "background_removal", fetch_format: "png" }],
-      eager_async: false,
-    })
-    const bgRemovedUrl = result?.eager?.[0]?.secure_url
-    if (bgRemovedUrl) {
-      await Product.findByIdAndUpdate(productId, { imageBgRemoved: bgRemovedUrl })
-      console.log(`[BG Removal] Updated product ${productId} with bg-removed image.`)
-    }
-  } catch (err) {
-    // Non-fatal: Cloudinary add-on may not be enabled; log and continue
-    console.warn(`[BG Removal] Skipped for product ${productId}: ${err.message}`)
-  }
-}
-
 const safeParseColors = (colors) => {
   if (!colors) return []
   if (Array.isArray(colors)) return colors
@@ -126,11 +99,9 @@ exports.createProduct = async (req, res) => {
 
   // Upload image to Cloudinary if provided
   let image = ""
-  let cloudinaryPublicId = null
   if (req.file) {
     const result = await uploadBufferToCloudinary(req.file.buffer)
     image = result.secure_url
-    cloudinaryPublicId = result.public_id
   }
 
   if (!image) {
@@ -152,11 +123,6 @@ exports.createProduct = async (req, res) => {
     inStock: Number(stock ?? 50) > 0,
   })
 
-  // Asynchronously apply background removal — does not block response
-  if (cloudinaryPublicId) {
-    applyBackgroundRemovalAsync(product._id, cloudinaryPublicId)
-  }
-
   res.status(201).json({ success: true, product })
 }
 
@@ -169,10 +135,6 @@ exports.updateProduct = async (req, res) => {
     const result = await uploadBufferToCloudinary(req.file.buffer)
     updates.image = result.secure_url
     updates.images = [result.secure_url]
-    // Reset bg-removed URL and reprocess asynchronously
-    updates.imageBgRemoved = ""
-    // Fire-and-forget background removal for updated image
-    applyBackgroundRemovalAsync(req.params.id, result.public_id)
   }
 
   if (updates.price) updates.price = Number(updates.price)

@@ -1,10 +1,9 @@
-# VÊTEMENT — AI-Powered Luxury Fashion E-Commerce
+# VÊTEMENT — Luxury Fashion E-Commerce Platform
 
-> A full-stack, AI-powered fashion e-commerce platform with a **Virtual Try-On** system. Browse a curated luxury catalog, manage your cart, and visualize how any garment looks on *your* body before you buy.
+> A full-stack luxury fashion e-commerce platform crafted with modern minimalism, performance, and reliability. Browse a curated catalog, manage your cart, experience seamless checkout with Stripe, and track your orders.
 
 ![Tech Stack](https://img.shields.io/badge/Next.js-14-black?logo=next.js)
 ![Node](https://img.shields.io/badge/Node.js-18+-green?logo=node.js)
-![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python)
 ![MongoDB](https://img.shields.io/badge/MongoDB-6+-darkgreen?logo=mongodb)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
@@ -20,9 +19,8 @@
   - [Installation](#1-clone--install-dependencies)
   - [Environment Variables](#2-configure-environment-variables)
   - [Seed the Database](#3-seed-the-database)
-  - [Run All Services](#4-run-all-three-services)
+  - [Run Both Services](#4-run-both-services)
 - [API Reference](#-api-reference)
-- [AI Virtual Try-On](#-ai-virtual-try-on)
 - [Optional Integrations](#-optional-integrations)
 - [Database Schema](#-database-schema)
 - [Contributing](#-contributing)
@@ -34,17 +32,16 @@
 | Feature | Status |
 |---|---|
 | Luxury product catalog (Men / Women / Accessories / New Arrivals) | ✅ |
-| Product detail page — image gallery, size & color selectors | ✅ |
+| Product detail page — image gallery, size & color selectors, stock awareness | ✅ |
 | Shopping cart with persistent state (Zustand) | ✅ |
 | User authentication — JWT (Register / Login / Profile) | ✅ |
-| Checkout with shipping address form | ✅ |
-| Order history (Account page) | ✅ |
-| Admin dashboard — product CRUD & order status management | ✅ |
-| AI Virtual Try-On — upload photo → see outfit on you | ✅ |
-| Order confirmation emails (Resend-ready stub) | ✅ |
-| Stripe-ready payment service (stub) | ✅ |
-| Cloudinary image storage | ✅ |
-| Database seeding — 12 products + admin account | ✅ |
+| Checkout with shipping address form & Stripe card integration | ✅ |
+| Customer order history (Account page) | ✅ |
+| Admin dashboard — product inventory CRUD & order status fulfillment | ✅ |
+| Order confirmation & welcome emails (Resend-ready) | ✅ |
+| Stripe payment processing & webhook verification | ✅ |
+| Cloudinary image storage with direct stream uploads | ✅ |
+| Database seeding — 12 luxury products + ready admin account | ✅ |
 
 ---
 
@@ -54,25 +51,23 @@
 dbmsEcommerceProj/
 ├── frontend/               # Next.js 14 (App Router) — TypeScript, Tailwind CSS
 │   └── src/
-│       ├── app/            # Pages & layouts (App Router)
-│       ├── components/     # Reusable UI components
-│       ├── store/          # Zustand state management
-│       ├── lib/            # API client & utilities
-│       └── types/          # TypeScript type definitions
+│       ├── app/            # Pages & layouts (Storefront, Cart, Checkout, Admin, Account)
+│       ├── components/     # Reusable UI components (Navbar, ProductCard, AdminForm, etc.)
+│       ├── store/          # Zustand client-side stores (Cart, Auth)
+│       ├── lib/            # REST API client & auth helpers
+│       └── types/          # TypeScript domain models & interfaces
 │
 ├── backend/                # Node.js / Express / MongoDB REST API
 │   └── src/
-│       ├── config/         # DB connection & env config
-│       ├── controllers/    # Route handler logic
-│       ├── middleware/      # Auth, error handling
-│       ├── models/         # Mongoose schemas (User, Product, Order, TryOn)
-│       ├── routes/         # API route definitions
-│       ├── services/       # Business logic (email, payment, AI)
-│       └── utils/          # Helpers & database seed script
+│       ├── config/         # MongoDB connection & Cloudinary setup
+│       ├── controllers/    # Route controllers (Auth, Products, Orders)
+│       ├── middleware/     # JWT authentication, error handler, Multer upload
+│       ├── models/         # Mongoose schemas (User, Product, Order)
+│       ├── routes/         # Express routers
+│       ├── services/       # Email & payment services
+│       └── utils/          # Seed data script & email templates
 │
-└── ai-service/             # Python / FastAPI — Virtual Try-On engine
-    └── app/
-        └── services/       # Image compositing & model runner
+└── docs/                   # Architecture and system documentation
 ```
 
 ---
@@ -82,12 +77,11 @@ dbmsEcommerceProj/
 | Layer | Technology |
 |---|---|
 | **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS, Zustand, Axios |
-| **Backend** | Node.js 18, Express 4, MongoDB 6, Mongoose, JWT, Bcrypt |
-| **AI Service** | Python 3.11, FastAPI, Pillow, OpenCV, NumPy, Cloudinary SDK |
-| **Storage** | Cloudinary (images & try-on results) |
-| **Auth** | JSON Web Tokens (JWT) |
-| **Email** | Resend (stub — plug-and-play) |
-| **Payments** | Stripe (stub — plug-and-play) |
+| **Backend** | Node.js 18+, Express 4, MongoDB 6+, Mongoose, JWT, Bcrypt |
+| **Storage** | Cloudinary CDN |
+| **Auth** | JSON Web Tokens (JWT) & HTTP-only secure patterns |
+| **Email** | Resend (transactional email stub) |
+| **Payments** | Stripe Elements & Payment Intents API |
 
 ---
 
@@ -99,67 +93,52 @@ dbmsEcommerceProj/
 |---|---|
 | Node.js | 18+ |
 | npm | 9+ |
-| Python | 3.11+ |
-| MongoDB | 6+ (local or Atlas) |
+| MongoDB | 6+ (local instance or MongoDB Atlas) |
 
 ---
 
 ### 1. Clone & Install Dependencies
 
 ```bash
-git clone https://github.com/<your-username>/dbmsEcommerceProj.git
-cd dbmsEcommerceProj
+git clone https://github.com/sudeepshm/dbmsProject.git
+cd dbmsProject
 
-# Frontend
+# Frontend dependencies
 cd frontend && npm install
 
-# Backend
+# Backend dependencies
 cd ../backend && npm install
-
-# AI Service
-cd ../ai-service
-python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS / Linux
-pip install -r requirements.txt
 ```
 
 ---
 
 ### 2. Configure Environment Variables
 
-Create the following `.env` files — **never commit real secrets to Git**.
-
 #### `backend/.env`
 ```env
 PORT=5000
-MONGO_URI=mongodb://localhost:27017/fashiondb
+MONGO_URI=mongodb://127.0.0.1:27017/fashiondb
 JWT_SECRET=your_super_secret_jwt_key
 JWT_EXPIRES_IN=7d
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
-AI_SERVICE_URL=http://localhost:8000
 NODE_ENV=development
 CLIENT_URL=http://localhost:3000
-# Optional — uncomment when Resend is active
-# RESEND_API_KEY=re_xxxxxxxxxxxx
-# FROM_EMAIL=orders@yourdomain.com
-# Optional — uncomment when Stripe is active
-# STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxx
-```
 
-#### `ai-service/.env`
-```env
-AI_SERVICE_PORT=8000
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+# Stripe Payments (optional)
+STRIPE_SECRET_KEY=sk_test_your_key
+STRIPE_WEBHOOK_SECRET=whsec_your_secret
+
+# Resend Transactional Email (optional)
+RESEND_API_KEY=re_your_key
+FROM_EMAIL=onboarding@resend.dev
 ```
 
 #### `frontend/.env.local`
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:5000
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_your_publishable_key
 ```
 
 ---
@@ -171,18 +150,18 @@ cd backend
 npm run seed
 ```
 
-This creates **12 demo products** and a ready-to-use **admin account**:
+This populates **12 luxury products** and creates the default **admin account**:
 
-| Field | Value |
+| Credential | Value |
 |---|---|
-| Email | `admin@vetement.com` |
-| Password | `Admin@12345` |
+| **Email** | `admin@vetement.com` |
+| **Password** | `Admin@12345` |
 
 ---
 
-### 4. Run All Three Services
+### 4. Run Both Services
 
-Open **three separate terminals**:
+Open **two separate terminals**:
 
 ```bash
 # Terminal 1 — Frontend  →  http://localhost:3000
@@ -192,12 +171,6 @@ npm run dev
 # Terminal 2 — Backend   →  http://localhost:5000
 cd backend
 npm run dev
-
-# Terminal 3 — AI Service  →  http://localhost:8000
-cd ai-service
-venv\Scripts\activate          # Windows
-# source venv/bin/activate     # macOS/Linux
-uvicorn app.main:app --reload --port 8000
 ```
 
 ---
@@ -208,77 +181,61 @@ uvicorn app.main:app --reload --port 8000
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| `POST` | `/register` | Public | Create a new user account |
-| `POST` | `/login` | Public | Login & receive JWT |
-| `GET` | `/me` | 🔒 Protected | Get current user profile |
+| `POST` | `/register` | Public | Register a new user |
+| `POST` | `/login` | Public | Authenticate user & return JWT |
+| `GET` | `/me` | 🔒 Protected | Fetch current profile |
 | `PUT` | `/profile` | 🔒 Protected | Update profile details |
 
 ### Products — `/api/products`
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| `GET` | `/` | Public | List all products (supports filtering) |
-| `GET` | `/:id` | Public | Get single product |
-| `POST` | `/` | 👑 Admin | Create a new product |
-| `PUT` | `/:id` | 👑 Admin | Update a product |
-| `DELETE` | `/:id` | 👑 Admin | Delete a product |
+| `GET` | `/` | Public | List products (category, price filter, sort, search) |
+| `GET` | `/:id` | Public | Fetch product details by ID |
+| `POST` | `/` | 👑 Admin | Create a product with image upload |
+| `PUT` | `/:id` | 👑 Admin | Update product details |
+| `DELETE` | `/:id` | 👑 Admin | Delete product |
 
 ### Orders — `/api/orders`
 
 | Method | Endpoint | Access | Description |
 |---|---|---|---|
-| `POST` | `/` | 🔒 Protected | Place a new order |
-| `GET` | `/my-orders` | 🔒 Protected | Get current user's orders |
-| `GET` | `/admin/all` | 👑 Admin | Get all orders |
-| `PATCH` | `/:id/status` | 👑 Admin | Update order status |
+| `POST` | `/` | 🔒 Protected | Place order & create Stripe PaymentIntent |
+| `POST` | `/:id/confirm-payment` | 🔒 Protected | Confirm payment status |
+| `GET` | `/my-orders` | 🔒 Protected | Get current user's order history |
+| `GET` | `/admin/all` | 👑 Admin | Get all store orders |
+| `PATCH` | `/:id/status` | 👑 Admin | Update fulfillment status |
 
-### AI Try-On — `/api/ai`
+### Webhooks — `/api/webhooks`
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/tryon` | 🔒 Protected | Submit try-on (garment + user photo) |
-| `GET` | `/my-tryons` | 🔒 Protected | Retrieve past try-on results |
-
----
-
-## 🧠 AI Virtual Try-On
-
-The try-on pipeline runs in three steps:
-
-1. **Select a garment** from the product catalog
-2. **Upload a full-body photo** of yourself
-3. **AI composites** the garment onto your photo
-
-**Current engine:** PIL / OpenCV compositing — runs on CPU, no GPU required.  
-**To upgrade to a diffusion model:** swap `ai-service/app/services/model_runner.py` with an OOTDiffusion or IDM-VTON inference script when a GPU instance is available.
-
-For a detailed breakdown of the system architecture and implementation strategy, see the [Architecture and Implementation Documentation](docs/architecture.md).
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/stripe` | Verifies raw-buffer Stripe payment webhook signatures |
 
 ---
 
 ## ⚡ Optional Integrations
 
 ### Stripe Payments
-
-1. `npm install stripe` inside `backend/`
-2. Add `STRIPE_SECRET_KEY=sk_test_...` to `backend/.env`
-3. Uncomment the Stripe logic in `backend/src/services/payment.service.js`
+1. Add `STRIPE_SECRET_KEY` in `backend/.env`.
+2. Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `frontend/.env.local`.
+3. Start the Stripe listener for webhooks:
+   ```bash
+   stripe listen --forward-to localhost:5000/api/webhooks/stripe
+   ```
 
 ### Resend Transactional Email
-
-1. `npm install resend` inside `backend/`
-2. Add `RESEND_API_KEY` and `FROM_EMAIL` to `backend/.env`
-3. Uncomment the Resend logic in `backend/src/services/email.service.js`
+1. Add `RESEND_API_KEY` and `FROM_EMAIL` to `backend/.env`.
+2. Automatic branded order confirmation and welcome emails will be dispatched on order creation and registration.
 
 ---
 
 ## 🗄️ Database Schema
 
 ```
-User       → name, email, passwordHash, role (user | admin), addresses[]
-Product    → name, description, price, category, images[], sizes[], colors[], stock
-Order      → user, items[], shippingAddress, totalPrice, status, paymentStatus
-TryOn      → user, productId, userImageUrl, resultImageUrl, createdAt
+User       → name, email, passwordHash, role (user | admin), avatar, timestamps
+Product    → name, description, price, originalPrice, category, images[], sizes[], colors[], stock, inStock, rating
+Order      → user, items[], shippingAddress, subtotal, shippingCost, total, status, paymentStatus
 ```
 
 ---
@@ -288,7 +245,7 @@ TryOn      → user, productId, userImageUrl, resultImageUrl, createdAt
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/your-feature`
 3. Commit your changes: `git commit -m "feat: add your feature"`
-4. Push to the branch: `git push origin feature/your-feature`
+4. Push to branch: `git push origin feature/your-feature`
 5. Open a Pull Request
 
 ---
@@ -296,7 +253,3 @@ TryOn      → user, productId, userImageUrl, resultImageUrl, createdAt
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
-
----
-
-> Built as a DBMS course project — demonstrating full-stack development with REST APIs, JWT auth, relational-style MongoDB schemas, and an AI microservice.

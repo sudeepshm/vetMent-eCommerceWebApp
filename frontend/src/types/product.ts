@@ -6,7 +6,6 @@ export interface Product {
   price: number
   originalPrice?: number
   image: string
-  imageBgRemoved?: string
   images: string[]
   category: "men" | "women" | "new" | "accessories"
   sizes: string[]

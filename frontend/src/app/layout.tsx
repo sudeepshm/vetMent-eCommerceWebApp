@@ -3,7 +3,6 @@ import { Toaster } from "react-hot-toast"
 import "./globals.css"
 import Navbar from "@/components/Navbar"
 import Footer from "@/components/Footer"
-import StyleAdvisor from "@/components/StyleAdvisor"
 
 export const metadata: Metadata = {
   title: {
@@ -11,11 +10,11 @@ export const metadata: Metadata = {
     template: "%s | VÊTEMENT",
   },
   description:
-    "Discover curated luxury fashion with AI-powered virtual try-on. Shop men's and women's collections.",
-  keywords: ["fashion", "luxury", "clothing", "AI try-on", "virtual fitting"],
+    "Discover curated luxury fashion. Explore timeless men's, women's, and accessories collections.",
+  keywords: ["fashion", "luxury", "clothing", "designer", "apparel"],
   openGraph: {
     title: "VÊTEMENT — Luxury Fashion",
-    description: "Shop luxury fashion with AI virtual try-on experience",
+    description: "Shop curated luxury fashion collections",
     type: "website",
   },
 }
@@ -44,7 +43,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             error: { iconTheme: { primary: "#ef4444", secondary: "#ffffff" } },
           }}
         />
-        <StyleAdvisor />
       </body>
     </html>
   )

@@ -8,9 +8,9 @@ import { getFeaturedProducts } from "@/lib/api"
 import type { Product } from "@/types"
 
 export const metadata: Metadata = {
-  title: "VÊTEMENT — Luxury Fashion with AI Try-On",
+  title: "VÊTEMENT — Luxury Fashion",
   description:
-    "Shop the finest curated luxury fashion. Featuring an AI-powered virtual try-on so you can see outfits on yourself before buying.",
+    "Shop the finest curated luxury fashion. Discover timeless elegance, impeccable tailoring, and modern silhouettes.",
 }
 
 const CATEGORIES = [
@@ -44,8 +44,8 @@ const PERKS = [
   },
   {
     icon: Sparkles,
-    title: "AI Try-On",
-    description: "See clothes on yourself before buying",
+    title: "Artisan Quality",
+    description: "Crafted from premium materials",
   },
 ]
 
@@ -82,8 +82,8 @@ export default async function HomePage() {
               <em className="not-italic text-gold-400">Confidence</em>
             </h1>
             <p className="mt-6 max-w-md text-base leading-8 text-neutral-300 sm:text-lg animate-slide-up">
-              Curated luxury fashion meets AI-powered virtual try‑on. See
-              exactly how it looks on you — before you buy.
+              Curated luxury fashion designed for effortless sophistication. Explore
+              our newest seasonal arrivals.
             </p>
             <div className="mt-10 flex flex-wrap gap-4 animate-fade-in">
               <Link href="/products" className="btn-primary">
@@ -91,11 +91,10 @@ export default async function HomePage() {
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
-                href="/try-on"
+                href="/products?category=new"
                 className="flex items-center gap-2 border border-white/60 bg-white/10 px-8 py-3.5 text-sm uppercase tracking-[0.2em] text-white backdrop-blur-sm transition hover:bg-white/20"
               >
-                <Sparkles className="h-4 w-4" />
-                AI Try‑On
+                New Arrivals
               </Link>
             </div>
           </div>
@@ -193,30 +192,29 @@ export default async function HomePage() {
         </section>
       )}
 
-      {/* ─────────────── AI TRY‑ON FEATURE ─────────────── */}
+      {/* ─────────────── ATELIER CRAFTSMANSHIP FEATURE ─────────────── */}
       <section className="bg-neutral-950 px-6 py-24 md:px-12">
         <div className="mx-auto max-w-[1600px]">
           <div className="grid grid-cols-1 items-center gap-16 lg:grid-cols-2">
             <div className="text-white">
               <p className="mb-4 text-xs uppercase tracking-[0.5em] text-neutral-400">
-                AI Technology
+                Atelier Craftsmanship
               </p>
               <h2 className="font-serif text-5xl font-medium leading-tight sm:text-6xl">
-                See It On
+                Precision In
                 <br />
-                <em className="not-italic text-gold-400">Yourself</em>
+                <em className="not-italic text-gold-400">Every Thread</em>
               </h2>
               <p className="mt-6 max-w-md text-base leading-8 text-neutral-400">
-                Upload your photo and our AI instantly generates a realistic
-                preview of how any outfit looks on your body. No more guessing.
-                Shop with confidence.
+                Every piece in our catalog is curated with an obsessive focus on quality,
+                silhouette, and timeless appeal. Discover garments that elevate your wardrobe season after season.
               </p>
               <ul className="mt-8 space-y-3 text-sm text-neutral-300">
                 {[
-                  "Upload a full-body photo",
-                  "Select any item from our collection",
-                  "Get an AI-generated preview in seconds",
-                  "Save and share your looks",
+                  "Premium natural fibers sourced from master mills",
+                  "Structured tailoring cut for modern proportions",
+                  "Sustainable manufacturing and ethical production",
+                  "Complimentary luxury packaging on all orders",
                 ].map((step, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <span className="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-700 text-xs text-neutral-400">
@@ -226,9 +224,9 @@ export default async function HomePage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/try-on" className="btn-primary mt-10 inline-flex">
-                <Sparkles className="h-4 w-4" />
-                Try It Free
+              <Link href="/products" className="btn-primary mt-10 inline-flex">
+                Explore The Atelier
+                <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
@@ -236,7 +234,7 @@ export default async function HomePage() {
             <div className="relative hidden aspect-square lg:block">
               <Image
                 src="https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=900&q=80"
-                alt="AI Virtual try-on feature preview"
+                alt="VÊTEMENT Atelier craftsmanship"
                 fill
                 sizes="50vw"
                 className="object-cover"
@@ -245,12 +243,9 @@ export default async function HomePage() {
               {/* Overlay badge */}
               <div className="absolute bottom-8 left-8 right-8 glass p-5 text-white">
                 <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-                  AI Processing
+                  Haute Couture
                 </p>
-                <p className="mt-1 font-serif text-lg">Virtual Try‑On Ready</p>
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/20">
-                  <div className="h-full w-3/4 rounded-full bg-white" />
-                </div>
+                <p className="mt-1 font-serif text-lg">Uncompromising Quality</p>
               </div>
             </div>
           </div>

@@ -16,25 +16,7 @@ frontend/.next/
 frontend/out/
 frontend/.turbo/
 
-# ─── Python / AI Service ──────────────────────────────────────────────────────
-ai-service/venv/
-ai-service/__pycache__/
-ai-service/**/__pycache__/
-ai-service/**/*.pyc
-ai-service/**/*.pyo
-ai-service/.pytest_cache/
-
-# ─── OS artifacts ─────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-desktop.ini
-
-# ─── Editor ───────────────────────────────────────────────────────────────────
-.vscode/
-.idea/
-*.swp
-*.swo
-
 # ─── Build outputs ────────────────────────────────────────────────────────────
 dist/
 build/
+*.tsbuildinfo

@@ -8,6 +8,5 @@ export type {
   ShippingAddress,
   Order,
   OrderItem,
-  TryOnRecord,
   ApiError,
 } from "./user"
