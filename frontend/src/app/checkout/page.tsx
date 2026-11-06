@@ -1,11 +1,13 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 /**
  * CheckoutPage
  *
  * Two-step Stripe payment flow:
  *  Step 1: Shipping address form
- *  Step 2: Payment via Stripe CardElement
+ *  Step 2: Payment via Stripe CardElement (or Mock Payment if Stripe is not configured)
  *
  * Flow:
  *  1. User fills shipping address → clicks "Continue to Payment"
@@ -66,15 +68,148 @@ const CARD_ELEMENT_STYLE = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Inner checkout form (must be inside <Elements> for useStripe hook)
+// Subcomponent: Stripe Card Payment Form (MUST be inside <Elements>)
 // ─────────────────────────────────────────────────────────────────────────────
-function CheckoutForm() {
+interface StripeCardPaymentFormProps {
+  clientSecret: string
+  pendingOrderId: string
+  total: number
+  onSuccess: (orderId: string) => void
+}
+
+function StripeCardPaymentForm({
+  clientSecret,
+  pendingOrderId,
+  total,
+  onSuccess,
+}: StripeCardPaymentFormProps) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [loading, setLoading] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
+
+  const handlePayNow = async () => {
+    if (!stripe || !elements || !clientSecret || !pendingOrderId) return
+
+    const card = elements.getElement(CardElement)
+    if (!card) return
+
+    setLoading(true)
+    setCardError(null)
+
+    try {
+      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card },
+      })
+
+      if (error) {
+        setCardError(error.message ?? "Payment failed")
+        toast.error(error.message ?? "Payment failed")
+        setLoading(false)
+        return
+      }
+
+      if (paymentIntent?.status === "succeeded") {
+        await confirmOrderPayment(pendingOrderId)
+        onSuccess(pendingOrderId)
+        toast.success("Payment successful! 🎉")
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Payment error")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <div className="space-y-4">
+        <div className="border border-neutral-200 p-4 focus-within:border-black transition-colors">
+          <CardElement options={CARD_ELEMENT_STYLE} onChange={() => setCardError(null)} />
+        </div>
+        {cardError && <p className="text-xs text-red-500">{cardError}</p>}
+      </div>
+
+      <div className="mt-4 flex items-center gap-1.5 text-xs text-neutral-400">
+        <Lock className="h-3 w-3" />
+        Secured by Stripe · Your card details are encrypted and never stored.
+      </div>
+
+      {stripePublishableKey.startsWith("pk_test_") && (
+        <div className="mt-3 border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+          <strong>Test mode:</strong> Use card <code className="font-mono">4242 4242 4242 4242</code> · any future expiry · any CVC
+        </div>
+      )}
+
+      <button
+        onClick={handlePayNow}
+        disabled={loading || !stripe}
+        className="btn-primary mt-8 w-full flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <><Loader2 className="h-4 w-4 animate-spin" />Processing…</>
+        ) : (
+          <><CreditCard className="h-4 w-4" />Pay ${total.toFixed(2)}</>
+        )}
+      </button>
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subcomponent: Mock Payment Form (fallback when Stripe is not configured)
+// ─────────────────────────────────────────────────────────────────────────────
+function MockPaymentForm({
+  pendingOrderId,
+  total,
+  onSuccess,
+}: {
+  pendingOrderId: string
+  total: number
+  onSuccess: (orderId: string) => void
+}) {
+  const [loading, setLoading] = useState(false)
+
+  const handleMockPay = async () => {
+    setLoading(true)
+    try {
+      await confirmOrderPayment(pendingOrderId)
+      onSuccess(pendingOrderId)
+      toast.success("Order placed successfully! 🎉")
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to confirm order")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-amber-700 border border-amber-200 bg-amber-50 px-4 py-3">
+        ⚠️ Stripe publishable key is not configured. You can complete this order in mock payment mode.
+      </p>
+      <button
+        onClick={handleMockPay}
+        disabled={loading}
+        className="btn-primary mt-8 w-full flex items-center justify-center gap-2"
+      >
+        {loading ? (
+          <><Loader2 className="h-4 w-4 animate-spin" />Processing…</>
+        ) : (
+          <><CreditCard className="h-4 w-4" />Complete Test Order — ${total.toFixed(2)}</>
+        )}
+      </button>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Checkout Page
+// ─────────────────────────────────────────────────────────────────────────────
+export default function CheckoutPage() {
   const router = useRouter()
   const { items, subtotal, clearCart } = useCartStore()
   const { isAuthenticated } = useAuthStore()
-
-  const stripe = useStripe()
-  const elements = useElements()
 
   const [step, setStep] = useState<"shipping" | "payment">("shipping")
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>(INITIAL_ADDRESS)
@@ -84,7 +219,6 @@ function CheckoutForm() {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null)
-  const [cardError, setCardError] = useState<string | null>(null)
 
   const sub = subtotal()
   const shipping = sub >= SHIPPING_THRESHOLD ? 0 : SHIPPING_COST
@@ -145,43 +279,6 @@ function CheckoutForm() {
       setStep("payment")
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to create order")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // ── Step 2: Confirm payment with Stripe ──
-  const handlePayNow = async () => {
-    if (!stripe || !elements || !clientSecret || !pendingOrderId) return
-
-    const card = elements.getElement(CardElement)
-    if (!card) return
-
-    setLoading(true)
-    setCardError(null)
-
-    try {
-      const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: { card },
-      })
-
-      if (error) {
-        setCardError(error.message ?? "Payment failed")
-        toast.error(error.message ?? "Payment failed")
-        setLoading(false)
-        return
-      }
-
-      if (paymentIntent?.status === "succeeded") {
-        // Tell backend to mark order as paid
-        await confirmOrderPayment(pendingOrderId)
-        clearCart()
-        setOrderId(pendingOrderId)
-        setPlaced(true)
-        toast.success("Payment successful! 🎉")
-      }
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Payment error")
     } finally {
       setLoading(false)
     }
@@ -320,47 +417,30 @@ function CheckoutForm() {
                 </button>
               </div>
 
-              {/* Stripe Card Element */}
-              <div className="space-y-4">
-                <div className="border border-neutral-200 p-4 focus-within:border-black transition-colors">
-                  <CardElement options={CARD_ELEMENT_STYLE} onChange={() => setCardError(null)} />
-                </div>
-                {cardError && (
-                  <p className="text-xs text-red-500">{cardError}</p>
-                )}
-                {!stripePromise && (
-                  <p className="text-xs text-amber-600 border border-amber-200 bg-amber-50 px-3 py-2">
-                    ⚠️ Stripe key not configured — order will be placed in mock mode.
-                    Add <code className="font-mono">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> to{" "}
-                    <code className="font-mono">frontend/.env.local</code>.
-                  </p>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center gap-1.5 text-xs text-neutral-400">
-                <Lock className="h-3 w-3" />
-                Secured by Stripe · Your card details are encrypted and never stored.
-              </div>
-
-              {/* Test card hint */}
-              {stripePublishableKey.startsWith("pk_test_") && (
-                <div className="mt-3 border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-                  <strong>Test mode:</strong> Use card{" "}
-                  <code className="font-mono">4242 4242 4242 4242</code> · any future expiry · any CVC
-                </div>
+              {stripePromise && clientSecret && !clientSecret.includes("mock") ? (
+                <Elements stripe={stripePromise}>
+                  <StripeCardPaymentForm
+                    clientSecret={clientSecret}
+                    pendingOrderId={pendingOrderId!}
+                    total={total}
+                    onSuccess={(id) => {
+                      clearCart()
+                      setOrderId(id)
+                      setPlaced(true)
+                    }}
+                  />
+                </Elements>
+              ) : (
+                <MockPaymentForm
+                  pendingOrderId={pendingOrderId!}
+                  total={total}
+                  onSuccess={(id) => {
+                    clearCart()
+                    setOrderId(id)
+                    setPlaced(true)
+                  }}
+                />
               )}
-
-              <button
-                onClick={handlePayNow}
-                disabled={loading || !stripe}
-                className="btn-primary mt-8 w-full flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Processing…</>
-                ) : (
-                  <><CreditCard className="h-4 w-4" />Pay ${total.toFixed(2)}</>
-                )}
-              </button>
             </>
           )}
         </div>
@@ -410,23 +490,5 @@ function CheckoutForm() {
         </div>
       </div>
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Page wrapper — provides Stripe context only when a key is configured
-// ─────────────────────────────────────────────────────────────────────────────
-export default function CheckoutPage() {
-  // IMPORTANT: <Elements stripe={null}> is invalid and crashes Stripe SDK.
-  // When no publishable key is set, render without the Elements wrapper.
-  // CheckoutForm detects !stripePromise and routes through mock payment flow.
-  if (!stripePromise) {
-    return <CheckoutForm />
-  }
-
-  return (
-    <Elements stripe={stripePromise}>
-      <CheckoutForm />
-    </Elements>
   )
 }
